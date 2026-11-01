@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine  # official public image
+    container_name: pg-benchmark
+    environment:
+      POSTGRES_USER: benchmark
+      POSTGRES_PASSWORD: benchmark
+      POSTGRES_DB: benchmark
+      # Tune for faster bulk load during seeding (safe for a local test container)
+      POSTGRES_INITDB_ARGS: "--auth-local=trust"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Seed data runs automatically on first init
+      - ./init:/docker-entrypoint-initdb.d:ro
+      # Query files mounted so they can be run with psql -f inside the container
+      - ./queries:/queries:ro
+      # Persist data so restarts don't lose the 1M rows
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U benchmark -d benchmark"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+      -c effective_cache_size=1GB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+
+volumes:
+  pgdata:

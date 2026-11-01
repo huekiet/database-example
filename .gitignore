@@ -1,0 +1,11 @@
+# .gitignore
+/.idea/
+/.vscode/
+*.env
+
+# Docker
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
