@@ -1,4 +1,4 @@
--- queries/03-join-vs-subquery.sql
+-- exercises/02-join-vs-subquery/queries/03-join-vs-subquery.sql
 -- Same logical result written two ways:
 --   (a) explicit JOIN
 --   (b) subquery (IN)

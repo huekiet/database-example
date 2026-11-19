@@ -1,4 +1,4 @@
--- queries/02-range-scan-by-date.sql
+-- exercises/01-index-vs-no-index/queries/02-range-scan-by-date.sql
 -- Range scan over a month of orders.
 -- WITH INDEX:  idx_orders_order_date (Index Scan / Bitmap Heap Scan)
 -- WITHOUT:     sequential scan

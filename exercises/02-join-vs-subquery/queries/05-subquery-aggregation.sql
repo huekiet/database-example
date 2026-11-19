@@ -1,4 +1,4 @@
--- queries/05-subquery-aggregation.sql
+-- exercises/02-join-vs-subquery/queries/05-subquery-aggregation.sql
 -- Same as 04 but written with a subquery in SELECT (correlated subquery).
 -- Compare to 04-join-aggregation.sql.
 EXPLAIN (ANALYZE, BUFFERS, VERBOSE)

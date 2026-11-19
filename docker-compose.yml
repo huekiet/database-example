@@ -15,8 +15,8 @@ services:
     volumes:
       # Seed data runs automatically on first init
       - ./init:/docker-entrypoint-initdb.d:ro
-      # Query files mounted so they can be run with psql -f inside the container
-      - ./queries:/queries:ro
+      # Exercise queries, grouped by topic (mounted so psql -f can reach them)
+      - ./exercises:/exercises:ro
       # Persist data so restarts don't lose the 1M rows
       - pgdata:/var/lib/postgresql/data
     healthcheck:

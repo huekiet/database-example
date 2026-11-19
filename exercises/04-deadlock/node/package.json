@@ -1,0 +1,16 @@
+{
+  "name": "deadlock-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ABBA deadlock reproduction and the consistent-lock-order fix",
+  "scripts": {
+    "deadlock": "node deadlock-demo.js",
+    "fixed": "node deadlock-fixed.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}

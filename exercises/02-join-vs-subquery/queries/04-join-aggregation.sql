@@ -1,4 +1,4 @@
--- queries/04-join-aggregation.sql
+-- exercises/02-join-vs-subquery/queries/04-join-aggregation.sql
 -- Heavy aggregation JOIN (joins 1M orders to users).
 -- Good for observing Hash Join vs Nested Loop plan choice with/without indexes.
 EXPLAIN (ANALYZE, BUFFERS, VERBOSE)

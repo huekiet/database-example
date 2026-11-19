@@ -21,15 +21,16 @@ USER="benchmark"
 PASS="benchmark"
 PGPASSWORD="$PASS"
 
-QDIR="/queries"
+# Query files are grouped by exercise under exercises/ and mounted at /exercises.
+QDIR="/exercises"
 
 # Maps query file -> label for the report
 declare -A QUERIES=(
-  ["01-point-lookup-by-user-id.sql"]="Point lookup by user_id (equality)"
-  ["02-range-scan-by-date.sql"]     ="Range scan by order_date (month)"
-  ["03-join-vs-subquery.sql"]       ="JOIN vs subquery (email filter)"
-  ["04-join-aggregation.sql"]       ="Aggregation JOIN (delivered orders)"
-  ["05-subquery-aggregation.sql"]   ="Correlated subquery aggregation"
+  ["01-index-vs-no-index/queries/01-point-lookup-by-user-id.sql"]="Point lookup by user_id (equality)"
+  ["01-index-vs-no-index/queries/02-range-scan-by-date.sql"]    ="Range scan by order_date (month)"
+  ["02-join-vs-subquery/queries/03-join-vs-subquery.sql"]       ="JOIN vs subquery (email filter)"
+  ["02-join-vs-subquery/queries/04-join-aggregation.sql"]       ="Aggregation JOIN (delivered orders)"
+  ["02-join-vs-subquery/queries/05-subquery-aggregation.sql"]   ="Correlated subquery aggregation"
 )
 
 run_sql() {
