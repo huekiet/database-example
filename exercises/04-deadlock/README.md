@@ -184,10 +184,10 @@ Measured on the seeded dataset (see [REPORT.md](REPORT.md)):
 
 | Run | Result |
 |-----|--------|
-| SQL deadlock demo | Both wait; **B aborted** with `40P01`, A committed; total **9.46 s** (4 s pause + 5 s detection + overhead) |
-| SQL fixed order | Both commit; total **2.55 s**; B waits for A at x |
-| Node naive (opposite order) | **A aborted** with `40P01` after 2.02 s, B committed in 2.02 s |
-| Node fixed (ordered + retry) | Both commit on attempt 1; A in 0.42 s, B in 0.83 s |
+| SQL deadlock demo | Both wait; **one session aborted** with `40P01`, the other committed; total ~9 s (4 s pause + 5 s detection + overhead). Which session is aborted is nondeterministic — see REPORT.md. |
+| SQL fixed order | Both commit; total ~2.5 s; B waits for A at x |
+| Node naive (opposite order) | **One transaction aborted** with `40P01` after ~2 s, the other committed in ~2 s. Victim varies between runs. |
+| Node fixed (ordered + retry) | Both commit on attempt 1; A ~0.4 s, B ~0.8 s |
 
 Final values depend on which transaction commits last (`x-by-A`/`y-by-A` or
 `x-by-B`/`y-by-B`); both runs above end with the survivor's values, then the
