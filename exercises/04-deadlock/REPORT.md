@@ -22,9 +22,10 @@ consistent lock ordering plus a retry loop.
 
 - SQL demo: `exercises/04-deadlock/deadlock-demo.ps1` with `-PauseSeconds 4`,
   `-DeadlockTimeout 5s`, `-OrderedHoldSeconds 2`.
-- Node demos: `deadlock-demo.js` (opposite order) and `deadlock-fixed.js`
-  (ordered `SELECT ... FOR UPDATE` + retry), with server-side `pg_sleep()`
-  between the lock acquisitions.
+- Node demos: `deadlock-demo.js` (opposite order), `deadlock-fixed.js`
+  (ordered `SELECT ... FOR UPDATE` + retry), and `deadlock-ordered-then-reversed.js`
+  (ordered locks upfront, then UPDATEs in reverse order), with server-side
+  `pg_sleep()` between the lock acquisitions.
 - Deadlock latency is deliberately raised to 5 s for the SQL demo so the cycle
   can be sampled; PostgreSQL's default `deadlock_timeout` is 1 s.
 
@@ -141,7 +142,9 @@ on.
 
 ## Scenario 4 — Node.js, fixed version
 
-`npm run fixed` locks both rows in one ordered statement:
+`npm run fixed` locks both rows in one ordered statement, then UPDATEs in
+different orders (A: id=1→2; B: id=2→1) to prove update order is irrelevant once
+all locks are held:
 
 ```js
 await client.query(
@@ -153,21 +156,23 @@ await client.query(
 Output:
 
 ```text
-=== Fixed version: ordered locks + retry ===
+=== Fixed version: ordered locks upfront, then UPDATEs in any order ===
 Both sessions lock users.id=1 then users.id=2 with one ordered SELECT ... FOR UPDATE.
+A then UPDATEs id=1 -> id=2.
+B then UPDATEs id=2 -> id=1 (reverse order).
 
-A: COMMITTED on attempt 1 in 0.42s
-B: COMMITTED on attempt 1 in 0.82s
+A: COMMITTED on attempt 1 in 0.82s
+B: COMMITTED on attempt 1 in 0.41s
 Total wall time: 0.84s
 
-Rows: 1=x-by-B, 2=y-by-B
+Rows: 1=x-by-A, 2=y-by-A
 ```
 
-A acquired both row locks, held them for 0.4 s, and committed. B was blocked at
-the ordered `SELECT ... FOR UPDATE`, then repeated the same work and committed.
-Neither transaction ever held one row while waiting for the other, so no
-deadlock was possible. The retry loop exists as a safety net but was not needed
-here (`attempt 1` for both).
+A acquired both row locks first, held them for 0.4 s, and committed. B was
+blocked at the ordered `SELECT ... FOR UPDATE`, then repeated the same work and
+committed — even though it UPDATEd id=2 before id=1. Neither transaction ever
+held one row while waiting for the other, so no deadlock was possible. The retry
+loop exists as a safety net but was not needed here (`attempt 1` for both).
 
 ## Why the numbers look like this
 

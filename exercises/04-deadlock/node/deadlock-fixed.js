@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 'use strict';
 
-// exercises/deadlock/node/deadlock-fixed.js
+// exercises/04-deadlock/node/deadlock-fixed.js
 //
 // The simple fix for the ABBA deadlock:
 //
 //   1. Lock every row a transaction needs in one deterministic order
-//      (ascending primary key) with a single SELECT ... FOR UPDATE.
+//      (ascending primary key) with a single SELECT ... FOR UPDATE,
+//      BEFORE any UPDATE.
 //   2. Retry on deadlock_detected (40P01) / serialization_failure (40001).
 //
-// Both sessions call runOrdered() and therefore take x (id 1) before y (id 2).
-// The second session waits at the ordered lock statement; neither can hold one
-// row while waiting for the other.
+// Both sessions lock x (id 1) then y (id 2) upfront. Session A then UPDATEs
+// id=1 -> id=2; Session B intentionally UPDATEs id=2 -> id=1 (reverse order)
+// to prove that update order is irrelevant once all locks are already held.
+// Neither can hold one row while waiting for the other, so no cycle forms.
 
 const { Client } = require('pg');
 
@@ -59,7 +61,11 @@ async function printRows() {
   }
 }
 
-async function runOrdered(label) {
+async function runOrdered(label, updateOrder) {
+  // updateOrder: array of [{id, value}] in the order to UPDATE after locking.
+  // Both sessions lock rows in ascending id order upfront, but may UPDATE in
+  // different orders to prove that update order does not matter once all locks
+  // are already held.
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const client = await connect();
     const startedAt = Date.now();
@@ -67,32 +73,32 @@ async function runOrdered(label) {
     try {
       await client.query('BEGIN');
 
-      // The key line: one statement, deterministic order, all rows at once.
-      // PostgreSQL locks the rows in ORDER BY id order (x first, then y).
+      // Lock every row upfront in deterministic ascending id order.
+      // Both sessions acquire locks on id=1, then id=2 — before any UPDATE.
       await client.query(
         'SELECT id FROM users WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
         [[ROW_X, ROW_Y]]
       );
 
-      // Hold both row locks for a moment so the other session has to wait.
+      // Hold both row locks so the other session can contend.
       await client.query('SELECT pg_sleep($1)', [HOLD_SECONDS]);
 
-      await client.query('UPDATE users SET name = $1 WHERE id = $2', [
-        `x-by-${label}`,
-        ROW_X,
-      ]);
-      await client.query('UPDATE users SET name = $1 WHERE id = $2', [
-        `y-by-${label}`,
-        ROW_Y,
-      ]);
+      // UPDATE in the specified order. B intentionally reverses (id=2 first)
+      // to prove that update order is irrelevant once both locks are held.
+      for (const { id, value } of updateOrder) {
+        await client.query('UPDATE users SET name = $1 WHERE id = $2', [
+          value,
+          id,
+        ]);
+      }
 
       await client.query('COMMIT');
       return { label, committed: true, attempt, ms: Date.now() - startedAt };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => {});
 
-      // Ordered locking should prevent this, but retrying is still the right
-      // safety net for multi-row transactions and serialization failures.
+      // Ordered locking should prevent deadlocks, but retrying is still the
+      // right safety net for multi-row transactions and serialization failures.
       if (RETRYABLE_CODES.has(error.code) && attempt < MAX_ATTEMPTS) {
         await sleep(100 * attempt);
         continue;
@@ -131,14 +137,25 @@ function printResult(result) {
 async function main() {
   await resetRows();
 
-  console.log('=== Fixed version: ordered locks + retry ===');
+  console.log('=== Fixed version: ordered locks upfront, then UPDATEs in any order ===');
   console.log(
     `Both sessions lock users.id=${ROW_X} then users.id=${ROW_Y} with one ordered SELECT ... FOR UPDATE.`
   );
+  console.log(`A then UPDATEs id=${ROW_X} -> id=${ROW_Y}.`);
+  console.log(`B then UPDATEs id=${ROW_Y} -> id=${ROW_X} (reverse order).`);
   console.log('');
 
   const startedAt = Date.now();
-  const results = await Promise.all([runOrdered('A'), runOrdered('B')]);
+  const results = await Promise.all([
+    runOrdered('A', [
+      { id: ROW_X, value: 'x-by-A' },
+      { id: ROW_Y, value: 'y-by-A' },
+    ]),
+    runOrdered('B', [
+      { id: ROW_Y, value: 'y-by-B' },
+      { id: ROW_X, value: 'x-by-B' },
+    ]),
+  ]);
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(2);
 
   printResult(results[0]);
@@ -150,8 +167,10 @@ async function main() {
   const allCommitted = results.every((result) => result.committed);
   if (allCommitted) {
     console.log('');
-    console.log('Result: both transactions committed. B waited for A at the first row');
-    console.log('instead of holding y while waiting for x, so no deadlock was possible.');
+    console.log(
+      'Result: both committed. B UPDATEd id=2 first but already held both locks, '
+      + 'so no deadlock was possible.'
+    );
   } else {
     process.exitCode = 1;
     console.log('');
@@ -162,11 +181,11 @@ async function main() {
   console.log('Rows reset to user_1 / user_2.');
 }
 
-main().catch(async (error) => {
+main().catch((error) => {
   if (error.code === 'ECONNREFUSED') {
     console.error(
-      `Cannot reach PostgreSQL at ${baseConfig.host}:${baseConfig.port}. ` +
-        'Start it with: docker compose up -d'
+      `Cannot reach PostgreSQL at ${baseConfig.host}:${baseConfig.port}. `
+      + 'Start it with: docker compose up -d'
     );
   } else {
     console.error(error);

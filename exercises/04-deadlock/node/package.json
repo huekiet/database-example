@@ -5,8 +5,7 @@
   "description": "ABBA deadlock reproduction and the consistent-lock-order fix",
   "scripts": {
     "deadlock": "node deadlock-demo.js",
-    "fixed": "node deadlock-fixed.js",
-    "fixed-reversed": "node deadlock-ordered-then-reversed.js"
+    "fixed": "node deadlock-fixed.js"
   },
   "engines": {
     "node": ">=18"
