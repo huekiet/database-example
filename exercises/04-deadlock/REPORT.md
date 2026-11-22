@@ -94,13 +94,16 @@ The PostgreSQL server log records the same event:
 
 ## Scenario 2 — SQL sessions, consistent lock order
 
-Both sessions now take x first. B blocks at `users.id = 1` instead of holding y:
+Both sessions lock both rows upfront with `SELECT ... FOR UPDATE ORDER BY id`
+(x, then y). B blocks at the first row lock (id=1), holds nothing, then
+UPDATEs in reverse order (y, then x) once it holds both locks — proving update
+order is irrelevant once all locks are already held:
 
 | When | Session A | Session B |
 |------|-----------|-----------|
-| T+0.0 | `UPDATE x` → lock | `UPDATE x` → **waits** (holds nothing) |
-| T+2.0 | `pg_sleep(2)` ends, `UPDATE y`, `COMMIT` | — |
-| T+2.0 | — | wakes, updates x and y, `COMMIT` |
+| T+0.0 | `SELECT ... FOR UPDATE ORDER BY id` → locks id=1, id=2 | `SELECT ... FOR UPDATE ORDER BY id` → blocks on id=1 (holds nothing) |
+| T+2.0 | `pg_sleep(2)` ends, `UPDATE id=1`, `UPDATE id=2`, `COMMIT` | — |
+| T+2.0 | — | wakes, holds both locks, `UPDATE id=2`, `UPDATE id=1`, `COMMIT` |
 
 Measured output:
 
@@ -110,7 +113,8 @@ Session A exit code: 0
 Session B exit code: 0
 Final rows: 1|x-by-B|989
 2|y-by-B|989
-Result: both sessions committed. B simply waited for A at users.id=1.
+Result: both sessions committed. B waited for A at the first row lock,
+then UPDATEd id=2 first — but already held both locks, so no cycle formed.
 ```
 
 Both transactions succeeded, with one ordinary lock wait and no cycle. B is the

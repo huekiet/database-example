@@ -42,8 +42,8 @@ not throughput.
 | `01-reset-demo-rows.sql` | Reset x/y to `user_1` / `user_2` |
 | `02-session-a-lock-x-then-y.sql` | A: `UPDATE` x, sleep, `UPDATE` y (deadlock side) |
 | `03-session-b-lock-y-then-x.sql` | B: `UPDATE` y, sleep, `UPDATE` x (deadlock side) |
-| `04-session-a-lock-ordered.sql` | A: lock x, sleep, lock y (fixed order) |
-| `05-session-b-lock-ordered.sql` | B: lock x, then y (same order) |
+| `04-session-a-lock-ordered.sql` | A: `SELECT ... FOR UPDATE ORDER BY id` locks both upfront, hold, UPDATE id=1 then id=2 |
+| `05-session-b-lock-ordered.sql` | B: `SELECT ... FOR UPDATE ORDER BY id` locks both upfront (same order), UPDATE id=2 then id=1 (reverse) |
 | `06-observe-deadlock.sql` | `pg_stat_activity` / `pg_locks` snapshot of the cycle |
 | `07-current-rows.sql` | Final x/y values and `xmin` |
 | `08-waiting-pair-check.sql` | Counts sessions waiting on `transactionid` |
